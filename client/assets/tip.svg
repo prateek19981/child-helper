@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="44" height="44" viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Make practice playful illustration">
+<circle id="Head" cx="17" cy="7" r="6.5" fill="white" stroke="#E7E7EF"/>
+<path id="Ear" d="M20.5 2.5C21.5231 2.5 22.5 3.53006 22.5 5C22.5 6.46994 21.5231 7.5 20.5 7.5C19.4769 7.5 18.5 6.46994 18.5 5C18.5 3.53006 19.4769 2.5 20.5 2.5Z" fill="white" stroke="#E7E7EF"/>
+<path id="Body" d="M17 14.5C19.4003 14.5 21.5511 15.15 23.0869 16.1738C24.6259 17.2 25.5 18.5625 25.5 20C25.5 21.4375 24.6259 22.8 23.0869 23.8262C21.5511 24.85 19.4003 25.5 17 25.5C14.5997 25.5 12.4489 24.85 10.9131 23.8262C9.37406 22.8 8.5 21.4375 8.5 20C8.5 18.5625 9.37406 17.2 10.9131 16.1738C12.4489 15.15 14.5997 14.5 17 14.5Z" fill="white" stroke="#E7E7EF"/>
+<circle id="Tail tip" cx="23" cy="25" r="2.5" fill="#FF7A59" stroke="#E7E7EF"/>
+<circle id="Tail base" cx="18" cy="22" r="1.5" fill="#FF7A59" stroke="#E7E7EF"/>
+<circle id="Eye" cx="15" cy="7" r="1" fill="#5B5BD6"/>
+<circle id="Nose" cx="17" cy="9" r="1" fill="#FF7A59"/>
+<rect id="Mouth" x="14" y="12" width="5" height="2" rx="1" fill="#FF7A59"/>
+<circle id="Cheek" cx="13.5" cy="11.5" r="1.5" fill="#EEEEFF"/>
+<circle id="Balloon" cx="32" cy="10" r="7.5" fill="#FF7A59" stroke="#E7E7EF"/>
+<circle id="Balloon_2" cx="10" cy="34" r="7.5" fill="#EEEEFF" stroke="#E7E7EF"/>
+</g>
+</svg>

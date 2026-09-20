@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Sound Space history illustration">
+<circle id="Planet" cx="8" cy="8" r="8" fill="#FF7A59"/>
+<circle id="Planet_2" cx="28" cy="8" r="8" fill="#EEEEFF"/>
+<circle id="Rocket body" cx="18" cy="18" r="7.5" fill="#5B5BD6" stroke="#E7E7EF"/>
+<circle id="Rocket nose" cx="18" cy="6" r="2" fill="#FF7A59"/>
+<circle id="Koober head" cx="23" cy="23" r="4.5" fill="white" stroke="#E7E7EF"/>
+<path id="Koober ear" d="M24 12.5C24.7301 12.5 25.5 13.2855 25.5 14.5C25.5 15.7145 24.7301 16.5 24 16.5C23.2699 16.5 22.5 15.7145 22.5 14.5C22.5 13.2855 23.2699 12.5 24 12.5Z" fill="white" stroke="#E7E7EF"/>
+<circle id="Koober eye" cx="21" cy="21" r="1" fill="#5B5BD6"/>
+<circle id="Koober nose" cx="23" cy="23" r="1" fill="#FF7A59"/>
+</g>
+</svg>

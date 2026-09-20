@@ -1,0 +1,98 @@
+import type { EdgeInsets } from "react-native-safe-area-context";
+import type { Theme } from "../../lib/theme";
+
+export function createParentHubStyles(t: Theme, insets: EdgeInsets) {
+  const { colors, radius, space } = t;
+  return {
+    scroll: {
+      paddingTop: insets.top + 10,
+      paddingBottom: space["2xl"],
+      paddingHorizontal: space.xl,
+    },
+    header: {
+      flexDirection: "row" as const,
+      justifyContent: "space-between" as const,
+      alignItems: "center" as const,
+      marginBottom: space.lg,
+    },
+    eyebrow: {
+      backgroundColor: colors.soft,
+      alignSelf: "flex-start" as const,
+      borderRadius: radius.pill,
+      paddingHorizontal: space.sm,
+      paddingVertical: 3,
+    },
+    eyebrowT: { fontSize: 10, fontWeight: "700" as const, color: colors.primary },
+    h1: { fontSize: 26, fontWeight: "800" as const, color: colors.text, marginTop: 3 },
+    cog: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    progress: {
+      backgroundColor: colors.primary,
+      borderRadius: radius.card,
+      padding: space.xl,
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 14,
+      marginBottom: 18,
+    },
+    progressBody: { flex: 1 as const, gap: space.sm },
+    weekPill: {
+      backgroundColor: "rgba(255,255,255,0.13)",
+      alignSelf: "flex-start" as const,
+      borderRadius: radius.pill,
+      paddingHorizontal: 9,
+      paddingVertical: 4,
+    },
+    weekT: { color: colors.white, fontSize: 11, fontWeight: "700" as const },
+    progressH: { color: colors.white, fontSize: 19, fontWeight: "800" as const },
+    progressS: { color: "rgba(255,255,255,0.8)", fontSize: 12, lineHeight: 17 },
+    cta: {
+      backgroundColor: colors.accent,
+      alignSelf: "flex-start" as const,
+      borderRadius: radius.pill,
+      paddingHorizontal: 14,
+      paddingVertical: space.sm,
+    },
+    ctaT: { color: colors.white, fontWeight: "800" as const, fontSize: 13 },
+    h2: { fontSize: 20, fontWeight: "800" as const, color: colors.text },
+    sub: { fontSize: 13, color: colors.muted, marginBottom: 10, marginTop: 4 },
+    tip: {
+      flexDirection: "row" as const,
+      alignItems: "center" as const,
+      gap: 14,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.lg,
+      padding: 14,
+      marginBottom: 10,
+    },
+    tipBody: { flex: 1 as const, gap: 4 },
+    tipArt: {
+      width: 52,
+      height: 62,
+      borderRadius: space.lg,
+      backgroundColor: colors.soft,
+      alignItems: "center" as const,
+      justifyContent: "center" as const,
+    },
+    tipTitle: { fontWeight: "800" as const, fontSize: 14, color: colors.text },
+    tipText: { fontSize: 12, color: colors.muted, lineHeight: 17 },
+    read: {
+      backgroundColor: colors.soft,
+      alignSelf: "flex-start" as const,
+      borderRadius: radius.pill,
+      paddingHorizontal: 7,
+      paddingVertical: 3,
+    },
+    readT: { fontSize: 10, fontWeight: "700" as const, color: colors.primary },
+  };
+}

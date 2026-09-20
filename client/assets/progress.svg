@@ -1,0 +1,16 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="90" height="96" viewBox="0 0 90 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Koober progress illustration">
+<circle id="Sun" cx="14" cy="14" r="14" fill="#FF7A59"/>
+<circle id="Leaf" cx="76" cy="14" r="14" fill="#EEEEFF"/>
+<circle id="Leaf_2" cx="14" cy="82" r="14" fill="#EEEEFF"/>
+<circle id="Head" cx="28" cy="20" r="9.5" fill="white" stroke="#E7E7EF"/>
+<path id="Ear" d="M31 8.5C32.3112 8.5 33.5 9.76806 33.5 11.5C33.5 13.2319 32.3112 14.5 31 14.5C29.6888 14.5 28.5 13.2319 28.5 11.5C28.5 9.76806 29.6888 8.5 31 8.5Z" fill="white" stroke="#E7E7EF"/>
+<path id="Body" d="M27 30.5C33.9851 30.5 39.5 35.276 39.5 41C39.5 46.724 33.9851 51.5 27 51.5C20.0149 51.5 14.5 46.724 14.5 41C14.5 35.276 20.0149 30.5 27 30.5Z" fill="white" stroke="#E7E7EF"/>
+<circle id="Tail tip" cx="39" cy="49" r="4.5" fill="#FF7A59" stroke="#E7E7EF"/>
+<circle id="Tail base" cx="31" cy="43" r="2.5" fill="#FF7A59" stroke="#E7E7EF"/>
+<circle id="Eye" cx="24" cy="18" r="2" fill="#5B5BD6"/>
+<circle id="Nose" cx="28" cy="20" r="2" fill="#FF7A59"/>
+<rect id="Mouth" x="22" y="22" width="8" height="3" rx="1.5" fill="#FF7A59"/>
+<circle id="Cheek" cx="22.5" cy="22.5" r="2.5" fill="#EEEEFF"/>
+</g>
+</svg>

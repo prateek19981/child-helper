@@ -1,0 +1,12 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="10" height="60" viewBox="0 0 10 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Stars" clip-path="url(#clip0_0_4)">
+<circle id="Star" cx="4" cy="4" r="4" fill="#FF7A59"/>
+<circle id="Star_2" cx="3" cy="29" r="3" fill="white"/>
+<circle id="Star_3" cx="5" cy="55" r="5" fill="#FF7A59"/>
+</g>
+<defs>
+<clipPath id="clip0_0_4">
+<rect width="10" height="60" fill="white"/>
+</clipPath>
+</defs>
+</svg>
