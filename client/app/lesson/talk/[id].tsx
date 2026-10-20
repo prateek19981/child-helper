@@ -126,6 +126,7 @@ export default function LessonTalk() {
 
   useEffect(() => {
     if (!id || !child) return;
+    console.log("starting talk", id, child);
     (async () => {
       try {
         const [talk, conv] = await Promise.all([
@@ -151,7 +152,11 @@ export default function LessonTalk() {
   }, [id, child, router]);
 
   useEffect(() => {
-    if (phase !== "speaking" || !promptText || !conversationId) return;
+    console.log("speaking", phase, promptText, conversationId);
+    if (phase !== "speaking" || !promptText || !conversationId) {
+      console.log("not speaking", phase, promptText, conversationId);
+      return;
+    };
     let cancelledSpeak = false;
     stopSpeech();
 
@@ -265,6 +270,7 @@ export default function LessonTalk() {
             heard_speech: finalHeard,
           },
         });
+        console.log("result_________1672381628", result);
 
         if (result.accepted) {
           setPhase("success");
@@ -316,6 +322,7 @@ export default function LessonTalk() {
   );
 
   useEffect(() => {
+    console.log("listening_________1672381628", phase);
     if (phase !== "listening") return;
     let meterTimer: ReturnType<typeof setInterval> | undefined;
     peakMetering.current = -160;
