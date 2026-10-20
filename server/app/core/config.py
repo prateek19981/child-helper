@@ -21,6 +21,20 @@ class Settings(BaseSettings):
     media_dir: str = "media"
     admin_username: str = "admin"
     admin_password: str = "koober-admin"
+    # faster-whisper: tiny/base/small/medium/large-v3 — tiny/base are best for local CPU
+    stt_provider: str = "faster_whisper"
+    stt_model: str = "base"
+    stt_device: str = "cpu"
+    stt_compute_type: str = "int8"
+    stt_language: str = "en"
+    # Talk followups: groq (free Llama API) or stub (offline canned lines)
+    llm_provider: str = "stub"
+    groq_api_key: str = ""
+    groq_model: str = "openai/gpt-oss-120b"
+    llm_max_turns: int = 5
+    llm_timeout_seconds: float = 8.0
+    # Set false on corp networks that MITM HTTPS (self-signed proxy certs)
+    llm_ssl_verify: bool = True
 
     @property
     def cors_origin_list(self) -> list[str]:

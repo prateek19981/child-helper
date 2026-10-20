@@ -5,7 +5,7 @@ import { SvgIcon } from "../components/SvgIcon";
 import { PrimaryButton, Screen } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
-import { createWelcomeStyles } from "./_indexStyles";
+import { createWelcomeStyles } from "../styles/welcomeStyles";
 
 export default function Welcome() {
   const router = useRouter();

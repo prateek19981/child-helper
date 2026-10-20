@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Back, Body, PrimaryButton, Screen, Title } from "../../components/ui";
 import { apiJson } from "../../lib/api";
 import { useTheme } from "../../lib/theme";
-import { createLessonStyles } from "./_idStyles";
+import { createLessonStyles } from "../../styles/lesson/idStyles";
 
 type Lesson = {
   id: string;

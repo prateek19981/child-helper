@@ -6,7 +6,7 @@ import { Back, Body, Field, PrimaryButton, Screen, Title } from "../../component
 import { SvgIcon } from "../../components/SvgIcon";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
-import { createForgotStyles } from "./_forgotStyles";
+import { createForgotStyles } from "../../styles/auth/forgotStyles";
 
 export default function Forgot() {
   const router = useRouter();

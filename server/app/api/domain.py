@@ -28,7 +28,9 @@ from app.models import (
     User,
     Word,
 )
+from app.core.config import settings
 from app.seed import ensure_talk_questions
+from app.services.dialogue import RETRY_PROMPT, HistoryMessage, dialogue_provider
 from app.services.speech import save_audio, scoring_provider, stt_provider
 
 router = APIRouter(tags=["domain"])
@@ -99,6 +101,18 @@ def _reply_accepted(text: str | None, heard_speech: bool | None) -> bool:
     if heard_speech is False:
         return False
     return True
+
+
+async def _lesson_title_from_context(db: AsyncSession, context: str | None) -> str:
+    raw = (context or "").strip()
+    if not raw.startswith("lesson:"):
+        return "Speaking practice"
+    try:
+        lesson_id = UUID(raw.removeprefix("lesson:").strip())
+    except ValueError:
+        return "Speaking practice"
+    lesson = await db.get(Lesson, lesson_id)
+    return lesson.title if lesson else "Speaking practice"
 
 
 class AttemptIn(BaseModel):
@@ -401,7 +415,8 @@ async def add_message(
 
         audio_bytes = base64.b64decode(body.audio_b64)
         audio_key = save_audio(audio_bytes)
-    if body.audio_b64 or body.text_content:
+    # STT only for child audio; mascot lines are script/TTS text only
+    if body.sender_type == SenderType.child and (body.audio_b64 or body.text_content):
         stt = await stt_provider.transcribe(audio_bytes, body.text_content)
         transcription = stt.text
         stt_p, stt_m = stt.provider, stt.model
@@ -422,10 +437,45 @@ async def add_message(
     return {
         "id": str(msg.id),
         "sequence_number": msg.sequence_number,
+        "sender_type": msg.sender_type.value,
         "text_content": msg.text_content,
         "transcription": msg.transcription,
         "stt_provider": msg.stt_provider,
     }
+
+
+@router.get("/conversations/{conversation_id}/messages")
+async def list_messages(
+    conversation_id: UUID,
+    user: User = Depends(get_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    conv = await db.get(Conversation, conversation_id)
+    if conv is None:
+        raise HTTPException(404, "Conversation not found")
+    child = await db.get(Child, conv.child_id)
+    if child is None or child.parent_id != user.id:
+        raise HTTPException(404, "Conversation not found")
+    rows = (
+        await db.scalars(
+            select(ConversationMessage)
+            .where(ConversationMessage.conversation_id == conv.id)
+            .order_by(ConversationMessage.sequence_number.asc())
+        )
+    ).all()
+    return [
+        {
+            "id": str(m.id),
+            "sequence_number": m.sequence_number,
+            "sender_type": m.sender_type.value,
+            "text_content": m.text_content,
+            "transcription": m.transcription,
+            "audio_duration_ms": m.audio_duration_ms,
+            "stt_provider": m.stt_provider,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in rows
+    ]
 
 
 @router.post("/conversations/{conversation_id}/child-reply")
@@ -460,24 +510,20 @@ async def child_reply(
     # Silence / no speech → empty transcript so the client retries
     if body.heard_speech is False and not explicit_text:
         transcription = ""
-        stt_p, stt_m = "stub", "stub-v1"
-    elif explicit_text:
-        stt = await stt_provider.transcribe(audio_bytes, explicit_text)
-        transcription = stt.text
-        stt_p, stt_m = stt.provider, stt.model
-    elif body.heard_speech is True:
-        # Stub until real STT: client metering detected speech
-        transcription = "I'm good"
-        stt_p, stt_m = "stub", "stub-v1"
+        stt_p, stt_m = "silence", "none"
     else:
-        stt = await stt_provider.transcribe(audio_bytes, None)
+        stt = await stt_provider.transcribe(audio_bytes, explicit_text or None)
         transcription = stt.text
         stt_p, stt_m = stt.provider, stt.model
+        # Client thought there was speech but STT heard nothing → treat as silence
+        if body.heard_speech is True and not (transcription or "").strip() and not explicit_text:
+            transcription = ""
 
+    child_seq = int(seq) + 1
     msg = ConversationMessage(
         conversation_id=conv.id,
         sender_type=SenderType.child,
-        sequence_number=int(seq) + 1,
+        sequence_number=child_seq,
         text_content=body.text_content,
         transcription=transcription,
         audio_storage_key=audio_key,
@@ -490,11 +536,65 @@ async def child_reply(
     await db.refresh(msg)
 
     accepted = _reply_accepted(transcription, body.heard_speech)
+    if not accepted:
+        return {
+            "id": str(msg.id),
+            "sequence_number": msg.sequence_number,
+            "sender_type": msg.sender_type.value,
+            "transcription": transcription,
+            "accepted": False,
+            "action": "retry",
+            "next_prompt": RETRY_PROMPT,
+            "done": False,
+        }
+
+    history_rows = (
+        await db.scalars(
+            select(ConversationMessage)
+            .where(ConversationMessage.conversation_id == conv.id)
+            .order_by(ConversationMessage.sequence_number.asc())
+        )
+    ).all()
+    history: list[HistoryMessage] = []
+    for row in history_rows:
+        if row.sender_type == SenderType.mascot:
+            text = (row.text_content or "").strip()
+            if text:
+                history.append(HistoryMessage(role="mascot", text=text))
+        else:
+            text = (row.transcription or row.text_content or "").strip()
+            if text:
+                history.append(HistoryMessage(role="child", text=text))
+
+    child_turn_count = sum(1 for h in history if h.role == "child")
+    lesson_title = await _lesson_title_from_context(db, conv.context)
+
+    turn = await dialogue_provider.next_turn(
+        history,
+        lesson_title=lesson_title,
+        max_turns=settings.llm_max_turns,
+        child_turn_count=child_turn_count,
+    )
+
+    mascot = ConversationMessage(
+        conversation_id=conv.id,
+        sender_type=SenderType.mascot,
+        sequence_number=child_seq + 1,
+        text_content=turn.text,
+    )
+    db.add(mascot)
+    await db.commit()
+    await db.refresh(mascot)
+
     return {
         "id": str(msg.id),
+        "sequence_number": msg.sequence_number,
+        "sender_type": msg.sender_type.value,
         "transcription": transcription,
-        "accepted": accepted,
-        "action": "advance" if accepted else "retry",
+        "accepted": True,
+        "action": "advance",
+        "next_prompt": turn.text,
+        "done": turn.done,
     }
 
 

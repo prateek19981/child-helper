@@ -7,7 +7,7 @@ import { Screen } from "../../components/ui";
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
-import { createParentHubStyles } from "./_parentHubStyles";
+import { createParentHubStyles } from "../../styles/tabs/parentHubStyles";
 
 type Hub = {
   headline: string;

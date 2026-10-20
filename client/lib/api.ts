@@ -1,23 +1,51 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from "axios";
+import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
+function metroHost(): string | null {
+  const hostUri =
+    Constants.expoConfig?.hostUri ??
+    (Constants as { manifest2?: { extra?: { expoClient?: { hostUri?: string } } } }).manifest2?.extra
+      ?.expoClient?.hostUri ??
+    (Constants as { manifest?: { debuggerHost?: string; hostUri?: string } }).manifest?.debuggerHost ??
+    (Constants as { manifest?: { hostUri?: string } }).manifest?.hostUri;
+  if (!hostUri || typeof hostUri !== "string") return null;
+  const host = hostUri.split(":")[0]?.trim();
+  if (!host || host === "localhost" || host === "127.0.0.1") return null;
+  // Tunnel hosts (*.exp.direct) are not the API machine
+  if (host.includes("exp.direct") || host.includes("expo.dev")) return null;
+  return host;
+}
+
 function resolveApiBaseUrl() {
   const configured = (process.env.EXPO_PUBLIC_API_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
-  if (Platform.OS !== "android") return configured;
+
+  // Public tunnel / production URLs: use as-is
+  if (configured.startsWith("https://") || configured.includes("trycloudflare.com") || configured.includes("ngrok")) {
+    return configured;
+  }
+
+  // Keep API on the same LAN host Expo Metro is using (avoids stale .env IPs)
   try {
     const url = new URL(configured);
-    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
-      url.hostname = "10.0.2.2";
-      return url.toString().replace(/\/$/, "");
+    const host = metroHost();
+    if (host && (url.hostname === "localhost" || url.hostname === "127.0.0.1" || /^\d+\.\d+\.\d+\.\d+$/.test(url.hostname))) {
+      url.hostname = host;
     }
+    if (Platform.OS === "android" && (url.hostname === "localhost" || url.hostname === "127.0.0.1")) {
+      url.hostname = "10.0.2.2";
+    }
+    return url.toString().replace(/\/$/, "");
   } catch {
     return configured;
   }
-  return configured;
 }
 
 const API = resolveApiBaseUrl();
+if (__DEV__) {
+  console.log("[api] base URL:", API);
+}
 
 export type Tokens = { access_token: string; refresh_token: string };
 
@@ -46,7 +74,7 @@ function errorMessage(error: AxiosError): string {
   if (typeof detail === "string") return detail;
   if (detail != null) return JSON?.stringify?.(detail);
   if (error.message === "Network Error") {
-    return `Cannot reach API at ${API}. On a physical phone use your computer's LAN IP (EXPO_PUBLIC_API_URL).`;
+    return `Cannot reach API at ${API}. On corp Wi‑Fi use a public tunnel (cloudflared) in EXPO_PUBLIC_API_URL and Expo --tunnel.`;
   }
   return error.message || "Request failed";
 }
@@ -84,6 +112,10 @@ export const http = axios.create({
 let refreshQueue: Promise<Tokens | null> | null = null;
 
 http.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  if (__DEV__) {
+    const method = (config.method ?? "get").toUpperCase();
+    console.log(`[api] → ${method} ${config.baseURL ?? ""}${config.url ?? ""}`);
+  }
   const path = config.url ?? "";
   if (SKIP_AUTH.has(path)) return config;
   const tokens = await getTokens();
@@ -94,8 +126,22 @@ http.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
 });
 
 http.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (__DEV__) {
+      const method = (response.config.method ?? "get").toUpperCase();
+      console.log(`[api] ← ${response.status} ${method} ${response.config.url ?? ""}`);
+    }
+    return response;
+  },
   async (error: AxiosError) => {
+    if (__DEV__) {
+      const cfg = error.config;
+      const method = (cfg?.method ?? "get").toUpperCase();
+      console.log(
+        `[api] ← ${error.response?.status ?? "ERR"} ${method} ${cfg?.url ?? ""}`,
+        error.response?.data ?? error.message
+      );
+    }
     const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
     const status = error.response?.status;
     if (!original || original._retry || status !== 401) {
@@ -128,7 +174,6 @@ http.interceptors.response.use(
 );
 
 export async function apiJson<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
-  console.log("apiJson", url, config);
   const { data } = await http.request<T>({ url, ...config });
   return data;
 }

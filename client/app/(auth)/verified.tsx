@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Body, PrimaryButton, Screen, Title } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
-import { createVerifiedStyles } from "./_verifiedStyles";
+import { createVerifiedStyles } from "../../styles/auth/verifiedStyles";
 
 export default function Verified() {
   const router = useRouter();

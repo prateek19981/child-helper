@@ -7,24 +7,38 @@ import {
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import * as Speech from "expo-speech";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Text, TouchableOpacity, View } from "react-native";
+import { Alert, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Mascot, type MascotMood } from "../../../components/organisms";
 import { Back, PrimaryButton, Screen } from "../../../components/ui";
 import { apiJson } from "../../../lib/api";
 import { useAuth } from "../../../lib/auth";
 import { useTheme } from "../../../lib/theme";
-import { createTalkStyles } from "./_idStyles";
+import { createTalkStyles } from "../../../styles/lesson/talkIdStyles";
 
 type Question = { id: string; prompt: string; retry: string };
 type TalkScript = { lesson_id: string; title: string; questions: Question[] };
-type ChildReply = { id: string; transcription: string; accepted: boolean; action: "advance" | "retry" };
+type ChildReply = {
+  id: string;
+  transcription: string;
+  accepted: boolean;
+  action: "advance" | "retry";
+  next_prompt?: string;
+  done?: boolean;
+};
 
 type Phase = "loading" | "speaking" | "listening" | "retry" | "success" | "done";
 
 /** Metering is dBFS (−160 silence → 0 max). Often stuck on emulators. */
-const SPEECH_METERING_THRESHOLD = -55;
+const SPEECH_METERING_THRESHOLD = -10;
+const METERING_ALIVE_THRESHOLD = -159;
+const METERING_POLL_MS = 120;
+/** After the child stops speaking, wait this long before ending the turn. */
+const SILENCE_TO_END_MS = 1_200;
+/** Hard cap so recording cannot run forever. */
+const MAX_LISTEN_MS = 10_0000;
 const MIN_RECORDED_AUDIO_BYTES = 8_000;
+const DEFAULT_RETRY = "I didn't quite catch that. Can you say it again?";
 
 function toBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
@@ -56,12 +70,12 @@ export default function LessonTalk() {
   const styles = useMemo(() => createTalkStyles(theme, insets), [theme, insets]);
   const { child } = useAuth();
 
-  const [script, setScript] = useState<TalkScript | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [index, setIndex] = useState(0);
-  const [isRetry, setIsRetry] = useState(false);
+  const [promptText, setPromptText] = useState("");
+  const [retryFallback, setRetryFallback] = useState(DEFAULT_RETRY);
   const [phase, setPhase] = useState<Phase>("loading");
   const [busy, setBusy] = useState(false);
+  const [isWrapUp, setIsWrapUp] = useState(false);
 
   const recorder = useAudioRecorder({
     ...RecordingPresets.HIGH_QUALITY,
@@ -73,9 +87,10 @@ export default function LessonTalk() {
   const meteringLive = useRef(false);
   const finishing = useRef(false);
   const cancelled = useRef(false);
-
-  const question = script?.questions[index];
-  const promptText = question ? (isRetry ? question.retry : question.prompt) : "";
+  /** Avoid duplicate mascot rows when the speaking effect re-runs. */
+  const lastSavedMascotKey = useRef<string | null>(null);
+  /** Server already persisted this line via child-reply — skip client POST. */
+  const mascotPersistedByServer = useRef(false);
 
   const mood: MascotMood =
     phase === "speaking"
@@ -121,7 +136,11 @@ export default function LessonTalk() {
           }),
         ]);
         if (cancelled.current) return;
-        setScript(talk);
+        const opener = talk.questions[0];
+        setPromptText(opener?.prompt ?? "Hi friend! How are you today?");
+        setRetryFallback(opener?.retry ?? DEFAULT_RETRY);
+        mascotPersistedByServer.current = false;
+        setIsWrapUp(false);
         setConversationId(conv.id);
         setPhase("speaking");
       } catch (e) {
@@ -132,11 +151,30 @@ export default function LessonTalk() {
   }, [id, child, router]);
 
   useEffect(() => {
-    if (phase !== "speaking" || !promptText) return;
+    if (phase !== "speaking" || !promptText || !conversationId) return;
     let cancelledSpeak = false;
     stopSpeech();
 
+    const mascotKey = `${conversationId}:${promptText}`;
+    const skipSave = mascotPersistedByServer.current;
+
     (async () => {
+      // Persist opener / local retry only; LLM followups are saved on the server.
+      if (!skipSave && lastSavedMascotKey.current !== mascotKey) {
+        try {
+          await apiJson(`/conversations/${conversationId}/messages`, {
+            method: "POST",
+            data: { sender_type: "mascot", text_content: promptText },
+          });
+          lastSavedMascotKey.current = mascotKey;
+        } catch {
+          /* still speak even if logging fails */
+        }
+      } else if (skipSave) {
+        lastSavedMascotKey.current = mascotKey;
+      }
+      if (cancelledSpeak || cancelled.current) return;
+
       try {
         await setAudioModeAsync({
           allowsRecording: false,
@@ -149,20 +187,25 @@ export default function LessonTalk() {
         /* ignore */
       }
       if (cancelledSpeak || cancelled.current) return;
+
+      const afterSpeak = () => {
+        if (cancelled.current) return;
+        if (isWrapUp) {
+          setIsWrapUp(false);
+          setPhase("done");
+          return;
+        }
+        setPhase("listening");
+      };
+
       Speech.speak(promptText, {
         language: "en-US",
         rate: 0.9,
         pitch: 1.05,
         volume: 1.0,
-        onDone: () => {
-          if (!cancelled.current) setPhase("listening");
-        },
-        onStopped: () => {
-          if (!cancelled.current) setPhase("listening");
-        },
-        onError: () => {
-          if (!cancelled.current) setPhase("listening");
-        },
+        onDone: afterSpeak,
+        onStopped: afterSpeak,
+        onError: afterSpeak,
       });
     })();
 
@@ -170,7 +213,7 @@ export default function LessonTalk() {
       cancelledSpeak = true;
       stopSpeech();
     };
-  }, [phase, promptText, stopSpeech, index, isRetry]);
+  }, [phase, promptText, stopSpeech, conversationId, isWrapUp]);
 
   const finishListening = useCallback(
     async (opts?: { forcedText?: string; forceSilence?: boolean; confirmSpoken?: boolean }) => {
@@ -187,7 +230,7 @@ export default function LessonTalk() {
           const status = recorder.getStatus();
           if (status.isRecording && typeof status.metering === "number") {
             peakMetering.current = Math.max(peakMetering.current, status.metering);
-            if (status.metering > -159) meteringLive.current = true;
+            if (status.metering > METERING_ALIVE_THRESHOLD) meteringLive.current = true;
           }
         } catch {
           /* ignore */
@@ -212,7 +255,6 @@ export default function LessonTalk() {
         meteringLive: meteringLive.current,
         audioByteLength,
       });
-
       try {
         const result = await apiJson<ChildReply>(`/conversations/${conversationId}/child-reply`, {
           method: "POST",
@@ -228,42 +270,67 @@ export default function LessonTalk() {
           setPhase("success");
           setTimeout(() => {
             if (cancelled.current) return;
-            const next = index + 1;
-            if (!script || next >= script.questions.length) {
+            const next = (result.next_prompt || "").trim();
+            if (result.done) {
+              if (next) {
+                mascotPersistedByServer.current = true;
+                setIsWrapUp(true);
+                setPromptText(next);
+                setPhase("speaking");
+              } else {
+                setPhase("done");
+              }
+              return;
+            }
+            if (!next) {
               setPhase("done");
               return;
             }
-            setIndex(next);
-            setIsRetry(false);
+            mascotPersistedByServer.current = true;
+            setIsWrapUp(false);
+            setPromptText(next);
             setPhase("speaking");
           }, 900);
         } else {
           setPhase("retry");
           setTimeout(() => {
             if (cancelled.current) return;
-            setIsRetry(true);
+            mascotPersistedByServer.current = false;
+            setIsWrapUp(false);
+            setPromptText((result.next_prompt || retryFallback).trim() || DEFAULT_RETRY);
             setPhase("speaking");
           }, 700);
         }
       } catch (e) {
         Alert.alert("Hmm", e instanceof Error ? e.message : "Could not hear you");
-        setIsRetry(true);
+        mascotPersistedByServer.current = false;
+        setIsWrapUp(false);
+        setPromptText(retryFallback);
         setPhase("speaking");
       } finally {
         setBusy(false);
         finishing.current = false;
       }
     },
-    [phase, conversationId, index, script, recorder]
+    [phase, conversationId, recorder, retryFallback]
   );
 
   useEffect(() => {
     if (phase !== "listening") return;
-    let timer: ReturnType<typeof setTimeout> | undefined;
     let meterTimer: ReturnType<typeof setInterval> | undefined;
     peakMetering.current = -160;
     meteringLive.current = false;
     finishing.current = false;
+
+    let hasSpoken = false;
+    let silenceMs = 0;
+
+    const stopMetering = () => {
+      if (meterTimer) {
+        clearInterval(meterTimer);
+        meterTimer = undefined;
+      }
+    };
 
     (async () => {
       try {
@@ -282,36 +349,49 @@ export default function LessonTalk() {
         listenStartedAt.current = Date.now();
 
         meterTimer = setInterval(() => {
+          if (finishing.current) return;
           try {
             const status = recorder.getStatus();
-            if (status.isRecording && typeof status.metering === "number") {
-              peakMetering.current = Math.max(peakMetering.current, status.metering);
-              if (status.metering > -159) meteringLive.current = true;
+            if (!status.isRecording || typeof status.metering !== "number") return;
+
+            const metering = status.metering;
+            peakMetering.current = Math.max(peakMetering.current, metering);
+            if (metering > METERING_ALIVE_THRESHOLD) meteringLive.current = true;
+
+            const elapsed = Date.now() - listenStartedAt.current;
+
+            if (meteringLive.current) {
+              if (metering >= SPEECH_METERING_THRESHOLD) {
+                hasSpoken = true;
+                silenceMs = 0;
+              } else if (hasSpoken) {
+                silenceMs += METERING_POLL_MS;
+              }
+
+              if (hasSpoken && silenceMs >= SILENCE_TO_END_MS) {
+                stopMetering();
+                void finishListening();
+                return;
+              }
+            }
+
+            if (elapsed >= MAX_LISTEN_MS) {
+              stopMetering();
+              void finishListening();
             }
           } catch {
             /* recording stopped */
           }
-        }, 120);
-
-        timer = setTimeout(() => {
-          void finishListening();
-        }, 5000);
+        }, METERING_POLL_MS);
       } catch {
-        /* mic unavailable — use simulate / stay silent */
+        /* mic unavailable — user can still tap I'm done speaking */
       }
     })();
 
     return () => {
-      if (timer) clearTimeout(timer);
-      if (meterTimer) clearInterval(meterTimer);
+      stopMetering();
     };
   }, [phase, cleanupRecording, finishListening, recorder]);
-
-  const progress =
-    script && script.questions.length
-      ? `Question ${Math.min(index + 1, script.questions.length)} of ${script.questions.length}`
-      : "";
-
   return (
     <Screen>
       <View style={styles.wrap}>
@@ -323,7 +403,6 @@ export default function LessonTalk() {
               router.back();
             }}
           />
-          <Text style={styles.progress}>{progress}</Text>
         </View>
 
         <View style={styles.center}>
@@ -332,7 +411,7 @@ export default function LessonTalk() {
             prompt={phase === "done" ? "You did amazing today!" : promptText}
             hint={
               phase === "listening"
-                ? "Speak, then tap I'm done speaking"
+                ? "Speak when you're ready — Koober is listening"
                 : phase === "retry"
                   ? "Koober will ask again"
                   : phase === "done"
@@ -350,27 +429,23 @@ export default function LessonTalk() {
                 label={busy ? "Checking…" : "I'm done speaking"}
                 onPress={() => void finishListening({ confirmSpoken: true })}
               />
-              <TouchableOpacity
-                style={styles.secondary}
-                onPress={() => void finishListening({ forcedText: "I'm good today" })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.secondaryText}>Simulate a reply (dev)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.secondary}
-                onPress={() => void finishListening({ forceSilence: true })}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.secondaryText}>Stay silent (ask again)</Text>
-              </TouchableOpacity>
             </>
           ) : null}
           {phase === "done" ? (
             <PrimaryButton tone="accent" label="Back to home" onPress={() => router.replace("/(tabs)" as Href)} />
           ) : null}
           {phase === "speaking" ? (
-            <PrimaryButton label="Skip to listening" onPress={() => setPhase("listening")} />
+            <PrimaryButton
+              label={isWrapUp ? "Continue" : "Skip to listening"}
+              onPress={() => {
+                if (isWrapUp) {
+                  setIsWrapUp(false);
+                  setPhase("done");
+                  return;
+                }
+                setPhase("listening");
+              }}
+            />
           ) : null}
         </View>
       </View>

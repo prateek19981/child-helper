@@ -7,7 +7,7 @@ import * as Google from "expo-auth-session/providers/google";
 import { Back, Body, Field, PrimaryButton, Screen, Title } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
-import { createSignInStyles } from "./_signInStyles";
+import { createSignInStyles } from "../../styles/auth/signInStyles";
 
 WebBrowser.maybeCompleteAuthSession();
 

@@ -7,7 +7,7 @@ import { Screen } from "../../components/ui";
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
-import { createHomeStyles } from "./_indexStyles";
+import { createHomeStyles } from "../../styles/tabs/indexStyles";
 
 type HomeData = {
   greeting: string;

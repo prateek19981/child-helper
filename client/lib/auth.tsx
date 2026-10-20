@@ -71,12 +71,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await applyTokens(data);
     },
     async register(name, email, password, childName) {
-      console.log("name___before", name);
       const data = await apiJson<{ dev_verify_token: string }>("/auth/register", {
         method: "POST",
         data: { display_name: name, email, password, child_name: childName },
       });
-      console.log("data___", data);
       return data.dev_verify_token;
     },
     async verify(token) {

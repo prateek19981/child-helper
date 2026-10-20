@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Back, Body, Field, PrimaryButton, Screen, Title } from "../../components/ui";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
-import { createSignUpStyles } from "./_signUpStyles";
+import { createSignUpStyles } from "../../styles/auth/signUpStyles";
 
 export default function SignUp() {
   const router = useRouter();

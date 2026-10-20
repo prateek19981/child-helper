@@ -7,7 +7,7 @@ import { Screen } from "../../components/ui";
 import { apiJson } from "../../lib/api";
 import { useAuth } from "../../lib/auth";
 import { useTheme } from "../../lib/theme";
-import { barHeight, createActivityStyles } from "./_activityStyles";
+import { barHeight, createActivityStyles } from "../../styles/tabs/activityStyles";
 
 type ActivityData = {
   week: {

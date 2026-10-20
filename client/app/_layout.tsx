@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { AuthProvider, useAuth } from "../lib/auth";
 import { ThemeProvider, useTheme } from "../lib/theme";
-import { createRootLayoutStyles } from "./_layoutStyles";
+import { createRootLayoutStyles } from "../styles/layoutStyles";
 
 function Gate() {
   const { user, ready } = useAuth();

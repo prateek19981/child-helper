@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { SvgIcon } from "../../components/SvgIcon";
 import { useTheme } from "../../lib/theme";
 import type { svgs } from "../../lib/svgs";
-import { createTabsLayoutStyles } from "./_layoutStyles";
+import { createTabsLayoutStyles } from "../../styles/tabs/layoutStyles";
 
 type TabStyles = ReturnType<typeof createTabsLayoutStyles>;
 

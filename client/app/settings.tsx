@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Back, PrimaryButton, Screen, Title } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
-import { createSettingsStyles } from "./_settingsStyles";
+import { createSettingsStyles } from "../styles/settingsStyles";
 
 export default function Settings() {
   const router = useRouter();

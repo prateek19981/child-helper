@@ -6,7 +6,7 @@ import { SvgIcon } from "../components/SvgIcon";
 import { Back, PrimaryButton, Screen } from "../components/ui";
 import { useAuth } from "../lib/auth";
 import { useTheme } from "../lib/theme";
-import { createProfileStyles } from "./_profileStyles";
+import { createProfileStyles } from "../styles/profileStyles";
 
 function ageLabel(band: string | null | undefined) {
   if (!band) return null;
