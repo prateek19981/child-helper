@@ -5,23 +5,36 @@ export type MascotMood = "idle" | "speaking" | "listening" | "retry" | "success"
 export function createMascotStyles(t: Theme) {
   const { colors, space, radius, typography } = t;
   return {
-    wrap: { alignItems: "center" as const, gap: space.md },
+    wrap: { flex: 1 as const, width: "100%" as const, alignItems: "stretch" as const, gap: space.md },
+    // Fill the space between the header and the buttons, and ignore the
+    // screen's side padding so the model is not clipped.
     stage: {
-      width: 220,
-      height: 220,
-      alignItems: "center" as const,
-      justifyContent: "center" as const,
+      flex: 1 as const,
+      marginHorizontal: -space.xl,
+      padding: 0,
+      overflow: "visible" as const,
     },
-    fox: { width: 180, height: 180 },
+    stageModel: {
+      position: "absolute" as const,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0,
+    },
     ring: {
       position: "absolute" as const,
-      width: 200,
-      height: 200,
+      width: 280,
+      height: 280,
+      left: "50%" as const,
+      top: "50%" as const,
+      marginLeft: -140,
+      marginTop: -140,
       borderRadius: 100,
       borderWidth: 3,
       borderColor: colors.accent,
     },
     badge: {
+      alignSelf: "center" as const,
       marginTop: space.sm,
       paddingHorizontal: space.md,
       paddingVertical: space.xs,

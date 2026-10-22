@@ -67,9 +67,18 @@ export function createHomeStyles(t: Theme, insets: EdgeInsets) {
       flexDirection: "row" as const,
       alignItems: "center" as const,
       gap: space.lg,
+      position: "relative" as const,
     },
     lessonBody: { flex: 1 as const, gap: space.md },
-    fox: { width: 118, height: 146 },
+    // Full height of the card, flush to the right edge, so he is not clipped
+    // by the card padding. The left side stays open for the lesson text.
+    bear: {
+      position: "absolute" as const,
+      top: -space.xl,
+      right: -space.xl,
+      bottom: -space.xl,
+      width: "62%" as const,
+    },
     pill: {
       backgroundColor: "rgba(255,255,255,0.16)",
       alignSelf: "flex-start" as const,
@@ -78,8 +87,18 @@ export function createHomeStyles(t: Theme, insets: EdgeInsets) {
       paddingVertical: 5,
     },
     pillText: { color: colors.white, fontSize: 11, fontWeight: "700" as const },
-    lessonTitle: { color: colors.white, fontSize: 22, fontWeight: "800" as const },
-    lessonDesc: { color: "rgba(255,255,255,0.8)", fontSize: 13, lineHeight: 18 },
+    lessonTitle: {
+      alignSelf: "flex-start" as const,
+      color: colors.white,
+      fontSize: 22,
+      fontWeight: "800" as const,
+    },
+    lessonDesc: {
+      alignSelf: "flex-start" as const,
+      color: "rgba(255,255,255,0.8)",
+      fontSize: 13,
+      lineHeight: 18,
+    },
     start: {
       backgroundColor: colors.accent,
       alignSelf: "flex-start" as const,

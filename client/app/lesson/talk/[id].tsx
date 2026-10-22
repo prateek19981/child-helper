@@ -1,17 +1,20 @@
 import {
+  createAudioPlayer,
   RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
   useAudioRecorder,
+  type AudioPlayer,
 } from "expo-audio";
+import { File, Paths } from "expo-file-system";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
-import * as Speech from "expo-speech";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Mascot, type MascotMood } from "../../../components/organisms";
 import { Back, PrimaryButton, Screen } from "../../../components/ui";
-import { apiJson } from "../../../lib/api";
+import { apiJson, getApiBaseUrl } from "../../../lib/api";
+import { mouthAt, mouthTrackFromWav, type MouthPose, CLOSED_MOUTH } from "../../../lib/lipsync";
 import { useAuth } from "../../../lib/auth";
 import { useTheme } from "../../../lib/theme";
 import { createTalkStyles } from "../../../styles/lesson/talkIdStyles";
@@ -25,6 +28,12 @@ type ChildReply = {
   action: "advance" | "retry";
   next_prompt?: string;
   done?: boolean;
+};
+type TtsResponse = {
+  provider: string;
+  voice: string;
+  url: string;
+  sample_rate?: number;
 };
 
 type Phase = "loading" | "speaking" | "listening" | "retry" | "success" | "done";
@@ -76,6 +85,7 @@ export default function LessonTalk() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [busy, setBusy] = useState(false);
   const [isWrapUp, setIsWrapUp] = useState(false);
+  const [mouth, setMouth] = useState<MouthPose>(CLOSED_MOUTH);
 
   const recorder = useAudioRecorder({
     ...RecordingPresets.HIGH_QUALITY,
@@ -91,6 +101,8 @@ export default function LessonTalk() {
   const lastSavedMascotKey = useRef<string | null>(null);
   /** Server already persisted this line via child-reply — skip client POST. */
   const mascotPersistedByServer = useRef(false);
+  const ttsPlayer = useRef<AudioPlayer | null>(null);
+  const mouthTrack = useRef<MouthPose[] | null>(null);
 
   const mood: MascotMood =
     phase === "speaking"
@@ -104,7 +116,13 @@ export default function LessonTalk() {
             : "idle";
 
   const stopSpeech = useCallback(() => {
-    Speech.stop();
+    try {
+      ttsPlayer.current?.pause();
+      ttsPlayer.current?.remove();
+    } catch {
+      /* ignore */
+    }
+    ttsPlayer.current = null;
   }, []);
 
   const cleanupRecording = useCallback(async () => {
@@ -126,7 +144,6 @@ export default function LessonTalk() {
 
   useEffect(() => {
     if (!id || !child) return;
-    console.log("starting talk", id, child);
     (async () => {
       try {
         const [talk, conv] = await Promise.all([
@@ -152,19 +169,82 @@ export default function LessonTalk() {
   }, [id, child, router]);
 
   useEffect(() => {
-    console.log("speaking", phase, promptText, conversationId);
-    if (phase !== "speaking" || !promptText || !conversationId) {
-      console.log("not speaking", phase, promptText, conversationId);
-      return;
-    };
+    if (phase !== "speaking" || !promptText || !conversationId) return;
     let cancelledSpeak = false;
     stopSpeech();
 
     const mascotKey = `${conversationId}:${promptText}`;
     const skipSave = mascotPersistedByServer.current;
 
+    const afterSpeak = () => {
+      if (cancelled.current || cancelledSpeak) return;
+      if (isWrapUp) {
+        setIsWrapUp(false);
+        setPhase("done");
+        return;
+      }
+      setPhase("listening");
+    };
+
+    const speakWithKokoro = async () => {
+      const tts = await apiJson<TtsResponse>("/tts", {
+        method: "POST",
+        data: { text: promptText },
+        timeout: 60_000,
+      });
+      if (cancelledSpeak || cancelled.current) return;
+      if (!tts.url) throw new Error("TTS returned no audio URL");
+
+      const remote = `${getApiBaseUrl()}${tts.url}`;
+      const dest = new File(Paths.cache, `kokoro_${Date.now()}.wav`);
+      const local = await File.downloadFileAsync(remote, dest, { idempotent: true });
+      if (cancelledSpeak || cancelled.current) return;
+
+      try {
+        mouthTrack.current = mouthTrackFromWav(await new File(local.uri).arrayBuffer());
+      } catch {
+        mouthTrack.current = null;
+      }
+      const player = createAudioPlayer({ uri: local.uri }, { updateInterval: 100 });
+      ttsPlayer.current = player;
+      let finished = false;
+      let started = false;
+      const finishOnce = () => {
+        if (finished || cancelledSpeak || cancelled.current) return;
+        finished = true;
+        sub.remove();
+        afterSpeak();
+      };
+      const sub = player.addListener("playbackStatusUpdate", (status) => {
+        if (cancelledSpeak || cancelled.current) return;
+        if (status.playing || status.currentTime > 0) started = true;
+        if (mouthTrack.current) setMouth(mouthAt(mouthTrack.current, status.currentTime));
+        if (status.didJustFinish) {
+          finishOnce();
+          return;
+        }
+        if (
+          started &&
+          status.isLoaded &&
+          !status.playing &&
+          status.duration > 0 &&
+          status.currentTime >= status.duration - 0.15
+        ) {
+          finishOnce();
+        }
+      });
+      player.play();
+      setTimeout(() => {
+        if (finished || cancelledSpeak || cancelled.current) return;
+        if (!started) {
+          sub.remove();
+          Alert.alert("TTS", "Could not play Kokoro audio");
+          afterSpeak();
+        }
+      }, 12_000);
+    };
+
     (async () => {
-      // Persist opener / local retry only; LLM followups are saved on the server.
       if (!skipSave && lastSavedMascotKey.current !== mascotKey) {
         try {
           await apiJson(`/conversations/${conversationId}/messages`, {
@@ -193,25 +273,13 @@ export default function LessonTalk() {
       }
       if (cancelledSpeak || cancelled.current) return;
 
-      const afterSpeak = () => {
-        if (cancelled.current) return;
-        if (isWrapUp) {
-          setIsWrapUp(false);
-          setPhase("done");
-          return;
-        }
-        setPhase("listening");
-      };
-
-      Speech.speak(promptText, {
-        language: "en-US",
-        rate: 0.9,
-        pitch: 1.05,
-        volume: 1.0,
-        onDone: afterSpeak,
-        onStopped: afterSpeak,
-        onError: afterSpeak,
-      });
+      try {
+        await speakWithKokoro();
+      } catch (e) {
+        if (cancelledSpeak || cancelled.current) return;
+        Alert.alert("TTS", e instanceof Error ? e.message : "Kokoro TTS failed");
+        afterSpeak();
+      }
     })();
 
     return () => {
@@ -270,7 +338,6 @@ export default function LessonTalk() {
             heard_speech: finalHeard,
           },
         });
-        console.log("result_________1672381628", result);
 
         if (result.accepted) {
           setPhase("success");
@@ -322,7 +389,6 @@ export default function LessonTalk() {
   );
 
   useEffect(() => {
-    console.log("listening_________1672381628", phase);
     if (phase !== "listening") return;
     let meterTimer: ReturnType<typeof setInterval> | undefined;
     peakMetering.current = -160;
@@ -399,6 +465,7 @@ export default function LessonTalk() {
       stopMetering();
     };
   }, [phase, cleanupRecording, finishListening, recorder]);
+
   return (
     <Screen>
       <View style={styles.wrap}>
@@ -415,6 +482,7 @@ export default function LessonTalk() {
         <View style={styles.center}>
           <Mascot
             mood={mood}
+            mouth={phase === "speaking" ? mouth : CLOSED_MOUTH}
             prompt={phase === "done" ? "You did amazing today!" : promptText}
             hint={
               phase === "listening"
@@ -430,13 +498,11 @@ export default function LessonTalk() {
 
         <View style={styles.actions}>
           {phase === "listening" ? (
-            <>
-              <PrimaryButton
-                tone="accent"
-                label={busy ? "Checking…" : "I'm done speaking"}
-                onPress={() => void finishListening({ confirmSpoken: true })}
-              />
-            </>
+            <PrimaryButton
+              tone="accent"
+              label={busy ? "Checking…" : "I'm done speaking"}
+              onPress={() => void finishListening({ confirmSpoken: true })}
+            />
           ) : null}
           {phase === "done" ? (
             <PrimaryButton tone="accent" label="Back to home" onPress={() => router.replace("/(tabs)" as Href)} />
@@ -450,6 +516,7 @@ export default function LessonTalk() {
                   setPhase("done");
                   return;
                 }
+                stopSpeech();
                 setPhase("listening");
               }}
             />

@@ -22,9 +22,8 @@ export function createTalkStyles(t: Theme, insets: EdgeInsets) {
     },
     center: {
       flex: 1 as const,
-      justifyContent: "center" as const,
-      alignItems: "center" as const,
-      gap: space.lg,
+      width: "100%" as const,
+      alignItems: "stretch" as const,
     },
     actions: { gap: space.md, paddingBottom: space.sm },
     secondary: {

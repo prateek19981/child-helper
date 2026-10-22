@@ -5,10 +5,10 @@
     "scheme": "koober",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/koober-fox.png",
+    "icon": "./assets/koober-bear.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/koober-fox.png",
+      "image": "./assets/koober-bear.png",
       "resizeMode": "contain",
       "backgroundColor": "#5B5BD6"
     },

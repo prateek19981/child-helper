@@ -32,6 +32,7 @@ from app.core.config import settings
 from app.seed import ensure_talk_questions
 from app.services.dialogue import RETRY_PROMPT, HistoryMessage, dialogue_provider
 from app.services.speech import save_audio, scoring_provider, stt_provider
+from app.services.tts import save_tts_audio, tts_provider
 
 router = APIRouter(tags=["domain"])
 
@@ -91,6 +92,11 @@ class ChildReplyIn(BaseModel):
     text_content: str | None = None
     # Client-side metering: False = silence → always retry
     heard_speech: bool | None = None
+
+
+class TtsIn(BaseModel):
+    text: str
+    voice: str | None = None
 
 
 def _reply_accepted(text: str | None, heard_speech: bool | None) -> bool:
@@ -660,4 +666,31 @@ async def create_attempt(body: AttemptIn, user: User = Depends(get_active_user),
         "speech_to_text": attempt.speech_to_text,
         "overall_score": float(scored.overall),
         "feedback": scored.feedback,
+    }
+
+
+@router.post("/tts")
+async def synthesize_speech(body: TtsIn, user: User = Depends(get_active_user)):
+    """Synthesize mascot speech with Kokoro. Returns a /media URL for playback."""
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(400, "text is required")
+    if len(text) > 800:
+        raise HTTPException(400, "text too long")
+
+    try:
+        result = await tts_provider.synthesize(text, voice=body.voice)
+    except Exception as exc:
+        raise HTTPException(502, f"TTS failed: {exc}") from exc
+
+    if result.fallback or not result.audio:
+        raise HTTPException(503, f"TTS provider unavailable ({result.provider})")
+
+    key = save_tts_audio(result.audio, suffix=".wav")
+    return {
+        "provider": result.provider,
+        "voice": result.voice,
+        "url": f"/media/{key}",
+        "sample_rate": result.sample_rate,
+        "content_type": result.content_type,
     }

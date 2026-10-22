@@ -20,3 +20,8 @@ sqladmin>=0.21.0
 itsdangerous>=2.2.0
 psycopg[binary]>=3.2.0
 faster-whisper>=1.1.0
+# Kokoro via ONNX (works on Python 3.14; pip package `kokoro` requires <3.13)
+kokoro-onnx>=0.4.7
+onnxruntime>=1.17.0
+soundfile>=0.12.1
+numpy>=1.26.0

@@ -47,6 +47,10 @@ if (__DEV__) {
   console.log("[api] base URL:", API);
 }
 
+export function getApiBaseUrl(): string {
+  return API;
+}
+
 export type Tokens = { access_token: string; refresh_token: string };
 
 const SKIP_AUTH = new Set([

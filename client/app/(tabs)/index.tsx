@@ -1,7 +1,8 @@
 import { type Href, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { JamesModel } from "../../components/organisms";
 import { SvgIcon } from "../../components/SvgIcon";
 import { Screen } from "../../components/ui";
 import { apiJson } from "../../lib/api";
@@ -33,6 +34,7 @@ export default function Home() {
   const { child } = useAuth();
   const router = useRouter();
   const [data, setData] = useState<HomeData | null>(null);
+  const [titleWidth, setTitleWidth] = useState<number | null>(null);
 
   useEffect(() => {
     if (!child) return;
@@ -75,8 +77,15 @@ export default function Home() {
               <View style={styles.pill}>
                 <Text style={styles.pillText}>{lesson.estimated_minutes} MIN · AI LESSON</Text>
               </View>
-              <Text style={styles.lessonTitle}>{lesson.title}</Text>
-              <Text style={styles.lessonDesc}>{lesson.description}</Text>
+              <Text
+                style={styles.lessonTitle}
+                onLayout={(event) => setTitleWidth(event.nativeEvent.layout.width)}
+              >
+                {lesson.title}
+              </Text>
+              <Text style={[styles.lessonDesc, titleWidth != null ? { width: titleWidth } : null]}>
+                {lesson.description}
+              </Text>
               <TouchableOpacity
                 style={styles.start}
                 onPress={() => router.push(`/lesson/talk/${lesson.id}` as Href)}
@@ -86,11 +95,7 @@ export default function Home() {
                 <Text style={styles.startText}>Start lesson</Text>
               </TouchableOpacity>
             </View>
-            <Image
-              source={require("../../assets/koober-fox.png")}
-              style={styles.fox}
-              resizeMode="contain"
-            />
+            <JamesModel mood="idle" fit={1.5} style={styles.bear} />
           </View>
         ) : null}
         <View style={styles.dots}>

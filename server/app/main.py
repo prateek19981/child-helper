@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.admin import setup_admin
@@ -19,6 +22,10 @@ app.add_middleware(SessionMiddleware, secret_key=settings.jwt_secret)
 app.include_router(auth_router)
 app.include_router(domain_router)
 setup_admin(app)
+
+_media = Path(settings.media_dir)
+_media.mkdir(parents=True, exist_ok=True)
+app.mount("/media", StaticFiles(directory=str(_media)), name="media")
 
 
 @app.get("/health")

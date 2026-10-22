@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = 8.0
     # Set false on corp networks that MITM HTTPS (self-signed proxy certs)
     llm_ssl_verify: bool = True
+    # TTS: kokoro (local ONNX neural) or stub (client falls back to expo-speech)
+    tts_provider: str = "kokoro"
+    kokoro_voice: str = "af_heart"
+    # a/en-us, b/en-gb, hi/h, es, fr-fr, it, ja, pt-br, cmn — or "auto" to infer from voice prefix
+    kokoro_lang: str = "a"
+    kokoro_model_dir: str = "models/kokoro"
+    tts_speed: float = 0.9
 
     @property
     def cors_origin_list(self) -> list[str]:

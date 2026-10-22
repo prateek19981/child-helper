@@ -1,6 +1,7 @@
 import { type Href, useRouter } from "expo-router";
-import { useEffect, useMemo, useRef } from "react";
-import { Animated, Image, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useMemo } from "react";
+import { Text, TouchableOpacity, View } from "react-native";
+import { JamesModel } from "../components/organisms";
 import { SvgIcon } from "../components/SvgIcon";
 import { PrimaryButton, Screen } from "../components/ui";
 import { useAuth } from "../lib/auth";
@@ -12,28 +13,15 @@ export default function Welcome() {
   const theme = useTheme();
   const styles = useMemo(() => createWelcomeStyles(theme), [theme]);
   const { user } = useAuth();
-  const bob = useRef(new Animated.Value(0)).current;
-  const bobStyle = useMemo(() => ({ transform: [{ translateY: bob }] }), [bob]);
 
   useEffect(() => {
     if (user?.status === "active") router.replace("/(tabs)" as Href);
   }, [user, router]);
 
-  useEffect(() => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, { toValue: -6, duration: 750, useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 0, duration: 750, useNativeDriver: true }),
-      ])
-    ).start();
-  }, [bob]);
-
   return (
     <Screen>
       <View style={styles.hero}>
-        <Animated.View style={bobStyle}>
-          <Image source={require("../assets/koober-fox.png")} style={styles.fox} resizeMode="contain" />
-        </Animated.View>
+        <JamesModel mood="idle" size={280} />
         <View style={styles.stars}>
           <SvgIcon name="stars" width={10} height={60} />
         </View>

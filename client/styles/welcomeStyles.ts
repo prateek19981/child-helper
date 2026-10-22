@@ -10,7 +10,7 @@ export function createWelcomeStyles(t: Theme) {
       justifyContent: "center" as const,
       gap: 18,
     },
-    fox: { width: 188, height: 188 },
+    bear: { width: 280, height: 300 },
     stars: { height: 60, width: 10 },
     content: {
       flex: 1 as const,
