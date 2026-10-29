@@ -64,7 +64,7 @@ export default function SignIn() {
         <Back onPress={() => router.back()} />
         <View style={styles.intro}>
           <Title>Welcome back!</Title>
-          <Body>Koober missed you. Sign in to keep your speaking streak going.</Body>
+          <Body>Kick missed you. Sign in to keep your speaking streak going.</Body>
         </View>
         <View style={styles.form}>
           <Field
@@ -99,7 +99,7 @@ export default function SignIn() {
           <PrimaryButton label={busy ? "Signing in…" : "Sign in"} onPress={onSubmit} />
           <TouchableOpacity onPress={() => router.push("/(auth)/sign-up")} activeOpacity={0.7}>
             <Text style={styles.footer}>
-              New to Koober?  <Text style={styles.link}>Create account</Text>
+              New to Kick?  <Text style={styles.link}>Create account</Text>
             </Text>
           </TouchableOpacity>
         </View>

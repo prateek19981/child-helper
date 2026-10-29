@@ -36,7 +36,7 @@ export default function LessonDetail() {
           <Title>{lesson?.title ?? "Lesson"}</Title>
           <Body>
             {lesson?.description ??
-              "Koober will ask a few friendly questions. Speak your answers out loud!"}
+              "Kick will ask a few friendly questions. Speak your answers out loud!"}
           </Body>
           {(lesson?.words ?? []).map((w) => (
             <Text key={w.id} style={styles.word}>
@@ -47,10 +47,10 @@ export default function LessonDetail() {
         <View style={styles.actions}>
           <PrimaryButton
             tone="accent"
-            label="Talk with Koober"
+            label="Talk with Kick"
             onPress={() => {
               if (!id) return;
-              router.push(`/lesson/talk/${id}` as Href);
+              router.push(`/lesson/loading/${id}` as Href);
             }}
           />
           <PrimaryButton label="Back to home" onPress={() => router.back()} />

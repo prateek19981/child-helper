@@ -59,7 +59,7 @@ export function createMascotStyles(t: Theme) {
 export function moodLabel(mood: MascotMood): string {
   switch (mood) {
     case "speaking":
-      return "Koober is talking";
+      return "Kick is talking";
     case "listening":
       return "I'm listening…";
     case "retry":

@@ -27,9 +27,9 @@ export default function Welcome() {
         </View>
       </View>
       <View style={styles.content}>
-        <Text style={styles.h1}>Big words start with little moments</Text>
+        <Text style={styles.h1}>Hi! I'm Kick</Text>
         <Text style={styles.sub}>
-          Play, practice and grow confident speaking with Koober by your side.
+          I like to party and play. Come on, let's party together.
         </Text>
         <PrimaryButton
           tone="accent"

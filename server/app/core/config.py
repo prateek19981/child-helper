@@ -27,11 +27,12 @@ class Settings(BaseSettings):
     stt_device: str = "cpu"
     stt_compute_type: str = "int8"
     stt_language: str = "en"
+    scoring_provider: str = "stub"
     # Talk followups: groq (free Llama API) or stub (offline canned lines)
     llm_provider: str = "stub"
     groq_api_key: str = ""
     groq_model: str = "openai/gpt-oss-120b"
-    llm_max_turns: int = 5
+    llm_max_turns: int = 10
     llm_timeout_seconds: float = 8.0
     # Set false on corp networks that MITM HTTPS (self-signed proxy certs)
     llm_ssl_verify: bool = True

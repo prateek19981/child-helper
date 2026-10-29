@@ -23,7 +23,7 @@ type ActivityData = {
 function histIcon(title: string) {
   const t = title.toLowerCase();
   if (t.includes("space") || t.includes("rocket") || t.includes("star")) return "hist_space" as const;
-  if (t.includes("hello") || t.includes("koober")) return "hist_koober" as const;
+  if (t.includes("hello") || t.includes("koober") || t.includes("kick")) return "hist_koober" as const;
   return "hist_jungle" as const;
 }
 

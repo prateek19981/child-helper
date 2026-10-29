@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import type { BottomTabBarProps } from "expo-router/tabs";
 import { useMemo } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,7 +31,7 @@ function TabIcon({
   );
 }
 
-function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTabBarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createTabsLayoutStyles(theme), [theme]);
@@ -53,13 +53,13 @@ function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
               activeOpacity={0.7}
               style={styles.tabButton}
               onPress={() => {
-                const event = navigation.emit({
+                const event = emitter.emit({
                   type: "tabPress",
                   target: route.key,
                   canPreventDefault: true,
                 });
                 if (!focused && !event.defaultPrevented) {
-                  navigation.navigate(route.name, route.params);
+                  navigateToTab(route.key);
                 }
               }}
             >

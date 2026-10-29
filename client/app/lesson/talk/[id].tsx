@@ -9,13 +9,14 @@ import {
 import { File, Paths } from "expo-file-system";
 import { type Href, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Mascot, type MascotMood } from "../../../components/organisms";
-import { Back, PrimaryButton, Screen } from "../../../components/ui";
+import { KickLottie, Mascot, type MascotMood } from "../../../components/organisms";
+import { Back, ConfirmDialog, PrimaryButton, Screen } from "../../../components/ui";
 import { apiJson, getApiBaseUrl } from "../../../lib/api";
 import { mouthAt, mouthTrackFromWav, type MouthPose, CLOSED_MOUTH } from "../../../lib/lipsync";
 import { useAuth } from "../../../lib/auth";
+import { peekTalkPrep } from "../../../lib/talkPrep";
 import { useTheme } from "../../../lib/theme";
 import { createTalkStyles } from "../../../styles/lesson/talkIdStyles";
 
@@ -28,6 +29,8 @@ type ChildReply = {
   action: "advance" | "retry";
   next_prompt?: string;
   done?: boolean;
+  streak_days?: number;
+  stars_earned?: number;
 };
 type TtsResponse = {
   provider: string;
@@ -79,13 +82,28 @@ export default function LessonTalk() {
   const styles = useMemo(() => createTalkStyles(theme, insets), [theme, insets]);
   const { child } = useAuth();
 
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [promptText, setPromptText] = useState("");
-  const [retryFallback, setRetryFallback] = useState(DEFAULT_RETRY);
-  const [phase, setPhase] = useState<Phase>("loading");
+  // Hydrate synchronously so the first paint isn't an empty "loading" flash.
+  const [boot] = useState(() => (typeof id === "string" ? peekTalkPrep(id) : null));
+  const [conversationId, setConversationId] = useState<string | null>(boot?.conversationId ?? null);
+  const [promptText, setPromptText] = useState(boot?.prompt ?? "");
+  const [retryFallback, setRetryFallback] = useState(boot?.retry ?? DEFAULT_RETRY);
+  const [phase, setPhase] = useState<Phase>(boot ? "speaking" : "loading");
   const [busy, setBusy] = useState(false);
   const [isWrapUp, setIsWrapUp] = useState(false);
   const [mouth, setMouth] = useState<MouthPose>(CLOSED_MOUTH);
+  const [starsEarned, setStarsEarned] = useState(5);
+  const [streakDays, setStreakDays] = useState(0);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  /** Cover talk with the loading Lottie until Kick's 3D model is drawn. */
+  const [bridgeVisible, setBridgeVisible] = useState(Boolean(boot));
+  const streakRecorded = useRef(false);
+
+  useEffect(() => {
+    if (!bridgeVisible) return;
+    const t = setTimeout(() => setBridgeVisible(false), 4_000);
+    return () => clearTimeout(t);
+  }, [bridgeVisible]);
 
   const recorder = useAudioRecorder({
     ...RecordingPresets.HIGH_QUALITY,
@@ -144,13 +162,17 @@ export default function LessonTalk() {
 
   useEffect(() => {
     if (!id || !child) return;
+    if (boot || conversationId) {
+      mascotPersistedByServer.current = false;
+      return;
+    }
     (async () => {
       try {
         const [talk, conv] = await Promise.all([
           apiJson<TalkScript>(`/lessons/${id}/talk-script`),
           apiJson<{ id: string }>("/conversations", {
             method: "POST",
-            data: { child_id: child.id, title: "Talk with Koober", context: `lesson:${id}` },
+            data: { child_id: child.id, title: "Talk with Kick", context: `lesson:${id}` },
           }),
         ]);
         if (cancelled.current) return;
@@ -166,10 +188,10 @@ export default function LessonTalk() {
         router.back();
       }
     })();
-  }, [id, child, router]);
+  }, [id, child, router, boot, conversationId]);
 
   useEffect(() => {
-    if (phase !== "speaking" || !promptText || !conversationId) return;
+    if (phase !== "speaking" || !promptText || !conversationId || bridgeVisible) return;
     let cancelledSpeak = false;
     stopSpeech();
 
@@ -286,7 +308,7 @@ export default function LessonTalk() {
       cancelledSpeak = true;
       stopSpeech();
     };
-  }, [phase, promptText, stopSpeech, conversationId, isWrapUp]);
+  }, [phase, promptText, stopSpeech, conversationId, isWrapUp, bridgeVisible]);
 
   const finishListening = useCallback(
     async (opts?: { forcedText?: string; forceSilence?: boolean; confirmSpoken?: boolean }) => {
@@ -345,6 +367,11 @@ export default function LessonTalk() {
             if (cancelled.current) return;
             const next = (result.next_prompt || "").trim();
             if (result.done) {
+              setStarsEarned(result.stars_earned ?? 5);
+              if (typeof result.streak_days === "number") setStreakDays(result.streak_days);
+              if ((result.stars_earned ?? 0) > 0 || (result.streak_days ?? 0) > 0) {
+                streakRecorded.current = true;
+              }
               if (next) {
                 mascotPersistedByServer.current = true;
                 setIsWrapUp(true);
@@ -356,6 +383,11 @@ export default function LessonTalk() {
               return;
             }
             if (!next) {
+              setStarsEarned(result.stars_earned ?? 5);
+              if (typeof result.streak_days === "number") setStreakDays(result.streak_days);
+              if ((result.stars_earned ?? 0) > 0 || (result.streak_days ?? 0) > 0) {
+                streakRecorded.current = true;
+              }
               setPhase("done");
               return;
             }
@@ -466,35 +498,104 @@ export default function LessonTalk() {
     };
   }, [phase, cleanupRecording, finishListening, recorder]);
 
+  const leaveTalk = useCallback(async () => {
+    if (leaving) return;
+    setLeaving(true);
+    stopSpeech();
+    await cleanupRecording();
+    try {
+      if (conversationId && !streakRecorded.current) {
+        const end = await apiJson<{ streak_days: number; stars_earned: number }>(
+          `/conversations/${conversationId}/end`,
+          { method: "POST" }
+        );
+        streakRecorded.current = true;
+        if (typeof end.streak_days === "number") setStreakDays(end.streak_days);
+        if (typeof end.stars_earned === "number") setStarsEarned(end.stars_earned);
+      }
+    } catch {
+      /* still leave even if streak write fails */
+    } finally {
+      setLeaveOpen(false);
+      setLeaving(false);
+      router.back();
+    }
+  }, [leaving, stopSpeech, cleanupRecording, conversationId, router]);
+
+  const onBackPress = useCallback(() => {
+    if (phase === "done" || phase === "loading") {
+      stopSpeech();
+      void cleanupRecording();
+      router.back();
+      return;
+    }
+    setLeaveOpen(true);
+  }, [phase, stopSpeech, cleanupRecording, router]);
+
   return (
     <Screen>
+      <ConfirmDialog
+        visible={leaveOpen}
+        title="Leave talk?"
+        body="Your speaking streak updates when this talk ends. Leave now or keep practicing with Kick?"
+        confirmLabel="Leave talk"
+        cancelLabel="Keep talking"
+        busy={leaving}
+        onCancel={() => setLeaveOpen(false)}
+        onConfirm={() => void leaveTalk()}
+      />
       <View style={styles.wrap}>
         <View style={styles.top}>
-          <Back
-            onPress={() => {
-              stopSpeech();
-              void cleanupRecording();
-              router.back();
-            }}
-          />
+          <Back onPress={onBackPress} />
         </View>
 
         <View style={styles.center}>
-          <Mascot
-            mood={mood}
-            mouth={phase === "speaking" ? mouth : CLOSED_MOUTH}
-            prompt={phase === "done" ? "You did amazing today!" : promptText}
-            hint={
-              phase === "listening"
-                ? "Speak when you're ready — Koober is listening"
-                : phase === "retry"
-                  ? "Koober will ask again"
-                  : phase === "done"
-                    ? "Koober is proud of you"
-                    : undefined
-            }
-          />
+          {phase === "loading" ? (
+            <View style={styles.boot}>
+              <KickLottie style={styles.wink} />
+              <Text style={styles.rewardHint}>Kick is getting ready…</Text>
+            </View>
+          ) : phase === "done" ? (
+            <View style={styles.reward}>
+              <KickLottie style={styles.wink} />
+              <Text style={styles.rewardTitle}>You did amazing!</Text>
+              {starsEarned > 0 ? (
+                <View style={styles.starsEarn}>
+                  <Text style={styles.starsEarnText}>+{starsEarned} stars</Text>
+                </View>
+              ) : null}
+              {streakDays > 0 ? (
+                <Text style={styles.rewardHint}>{streakDays}-day speaking streak</Text>
+              ) : (
+                <Text style={styles.rewardHint}>Kick is proud of you</Text>
+              )}
+            </View>
+          ) : (
+            <Mascot
+              mood={mood}
+              mouth={phase === "speaking" ? mouth : CLOSED_MOUTH}
+              prompt={promptText}
+              onModelReady={() => setBridgeVisible(false)}
+              hint={
+                phase === "listening"
+                  ? "Speak when you're ready — Kick is listening"
+                  : phase === "retry"
+                    ? "Kick will ask again"
+                    : phase === "success"
+                      ? "Nice!"
+                      : undefined
+              }
+            />
+          )}
         </View>
+
+        {bridgeVisible && phase !== "done" ? (
+          <View style={styles.bridge} pointerEvents="none">
+            <KickLottie style={styles.wink} />
+            <Text style={styles.rewardTitle}>Almost there</Text>
+            <Text style={styles.rewardHint}>Kick is getting ready…</Text>
+          </View>
+        ) : null}
 
         <View style={styles.actions}>
           {phase === "listening" ? (
@@ -505,9 +606,13 @@ export default function LessonTalk() {
             />
           ) : null}
           {phase === "done" ? (
-            <PrimaryButton tone="accent" label="Back to home" onPress={() => router.replace("/(tabs)" as Href)} />
+            <PrimaryButton
+              tone="accent"
+              label="Play Math Puzzles"
+              onPress={() => router.replace("/puzzles" as Href)}
+            />
           ) : null}
-          {phase === "speaking" ? (
+          {phase === "speaking" && !bridgeVisible ? (
             <PrimaryButton
               label={isWrapUp ? "Continue" : "Skip to listening"}
               onPress={() => {

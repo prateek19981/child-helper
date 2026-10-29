@@ -212,7 +212,7 @@ def setup_admin(app: FastAPI) -> Admin:
     admin = Admin(
         app,
         engine,
-        title="Koober Admin",
+        title="Kick Admin",
         base_url="/admin",
         authentication_backend=AdminAuth(secret_key=settings.jwt_secret),
     )

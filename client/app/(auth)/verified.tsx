@@ -39,7 +39,7 @@ export default function Verified() {
           {error
             ? error
             : user
-              ? "Your email is verified. Let’s start speaking with Koober."
+              ? "Your email is verified. Let’s start speaking with Kick."
               : "We sent a verification link. Open it, then continue."}
         </Body>
         <View style={styles.actions}>

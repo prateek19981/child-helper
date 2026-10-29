@@ -76,7 +76,7 @@ export default function SignUp() {
         </View>
         <View style={styles.actions}>
           <PrimaryButton tone="accent" label="Create account" onPress={onSubmit} />
-          <Text style={styles.terms}>By continuing, you agree to Koober’s Terms and Privacy Policy.</Text>
+          <Text style={styles.terms}>By continuing, you agree to Kick’s Terms and Privacy Policy.</Text>
         </View>
       </ScrollView>
     </Screen>

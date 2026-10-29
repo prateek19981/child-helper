@@ -7,26 +7,24 @@ from dataclasses import dataclass
 
 import httpx
 
+from app.content.prompts import RETRY_PROMPT, STUB_FOLLOWUPS, SYSTEM_PROMPT, WRAP_UP_PROMPT
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are Koober, a friendly koala mascot helping young children (ages 4–8) practice speaking English.
-Keep every reply warm, simple, and short: at most 1–2 sentences, ending with exactly one easy question.
-Stay kid-safe: no violence, adult topics, medical or legal advice, scares, or personal data requests.
-If the child says something unclear or off-topic, gently redirect to a friendly everyday topic.
-This is a short warm-up before word practice — do not give long lectures start with asking children to introduce themselves if they fail then ask them to repeat after you then ask other questions.
-
-Reply with ONLY the words Koober should say out loud. No JSON, no labels, no quotes, no markdown."""
-
-RETRY_PROMPT = "I didn't quite catch that. Can you say it again?"
-
-WRAP_UP_PROMPT = "You did great talking with me! Ready to practice some words next?"
-
-STUB_FOLLOWUPS = [
-    "That sounds wonderful! What else makes you happy?",
-    "I love hearing that! Who do you like to play with?",
-    "Awesome! What is your favorite thing to do outside?",
+# Re-export for callers that still import prompts from dialogue.
+__all__ = [
+    "DialogueProvider",
+    "DialogueTurn",
+    "GroqDialogueProvider",
+    "HistoryMessage",
+    "RETRY_PROMPT",
+    "STUB_FOLLOWUPS",
+    "SYSTEM_PROMPT",
+    "StubDialogueProvider",
+    "WRAP_UP_PROMPT",
+    "build_dialogue_provider",
+    "dialogue_provider",
 ]
 
 
@@ -99,11 +97,13 @@ class GroqDialogueProvider(DialogueProvider):
             {
                 "role": "user",
                 "content": (
-                    f"Lesson: {lesson_title or 'Speaking practice'}\n"
-                    f"Child turns so far: {child_turn_count} of {max_turns} "
-                    f"(keep chatting unless the child wants to stop).\n"
+                    f"Lesson: {lesson_title or 'Speaking warm-up for Math Puzzles'}\n"
+                    f"Child turns so far: {child_turn_count} of {max_turns}.\n"
+                    "Build a deeper conversation: react to their last message, ask one follow-up "
+                    "that goes further (not a brand-new topic), and only invite Math Puzzles "
+                    "when you already know something real about them.\n"
                     f"Conversation:\n{_format_history(messages)}\n\n"
-                    "Write Koober's next spoken line only."
+                    "Write Kick's next spoken line only."
                 ),
             },
         ]
@@ -158,7 +158,7 @@ class GroqDialogueProvider(DialogueProvider):
 def _format_history(messages: list[HistoryMessage]) -> str:
     lines: list[str] = []
     for m in messages[-12:]:
-        who = "Koober" if m.role == "mascot" else "Child"
+        who = "Kick" if m.role == "mascot" else "Child"
         lines.append(f"{who}: {m.text}")
     return "\n".join(lines) if lines else "(no prior messages)"
 

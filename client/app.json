@@ -1,21 +1,18 @@
 {
   "expo": {
-    "name": "Koober",
+    "name": "Kick",
     "slug": "koober",
     "scheme": "koober",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/koober-bear.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/koober-bear.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#5B5BD6"
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.koober.app"
     },
-    "ios": { "supportsTablet": false, "bundleIdentifier": "dev.koober.app" },
     "android": {
-      "package": "dev.koober.app",
-      "usesCleartextTraffic": true
+      "package": "dev.koober.app"
     },
     "plugins": [
       "expo-router",
@@ -23,10 +20,29 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Allow Koober to hear your child's answers."
+          "microphonePermission": "Allow Kick to hear your child's answers."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/koober-bear.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#5B5BD6",
+          "imageWidth": 200
         }
       ]
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }

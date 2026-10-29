@@ -10,9 +10,10 @@ type Props = {
   prompt?: string;
   hint?: string;
   mouth?: MouthPose;
+  onModelReady?: () => void;
 };
 
-export function Mascot({ mood, prompt, hint, mouth }: Props) {
+export function Mascot({ mood, prompt, hint, mouth, onModelReady }: Props) {
   const styles = useThemedStyles(createMascotStyles);
   const ring = useRef(new Animated.Value(0.4)).current;
 
@@ -35,7 +36,7 @@ export function Mascot({ mood, prompt, hint, mouth }: Props) {
     <View style={styles.wrap}>
       <View style={styles.stage}>
         {mood === "listening" ? <Animated.View style={[styles.ring, { opacity: ring }]} /> : null}
-        <JamesModel mood={mood} mouth={mouth} style={styles.stageModel} />
+        <JamesModel mood={mood} mouth={mouth} style={styles.stageModel} onReady={onModelReady} />
       </View>
       <View style={styles.badge}>
         <Text style={styles.badgeText}>{moodLabel(mood)}</Text>

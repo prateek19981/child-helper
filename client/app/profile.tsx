@@ -37,7 +37,7 @@ export default function Profile() {
         <View style={styles.header}>
           <View style={styles.titleBlock}>
             <Text style={styles.h1}>Profile</Text>
-            <Text style={styles.sub}>Your family on Koober</Text>
+            <Text style={styles.sub}>Your family on Kick</Text>
           </View>
           <TouchableOpacity onPress={() => router.push("/settings")} style={styles.cog} activeOpacity={0.7}>
             <SvgIcon name="cog" width={20} height={20} />

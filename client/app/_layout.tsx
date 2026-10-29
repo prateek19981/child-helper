@@ -36,6 +36,13 @@ function Gate() {
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="lesson/[id]" />
+      <Stack.Screen name="lesson/loading/[id]" options={{ animation: "fade" }} />
+      <Stack.Screen name="lesson/talk/[id]" options={{ animation: "none" }} />
+      <Stack.Screen name="puzzles/index" />
+      <Stack.Screen name="puzzles/[id]" />
+      <Stack.Screen name="puzzles/timer/[difficulty]/index" />
+      <Stack.Screen name="puzzles/timer/[difficulty]/[id]" />
+      <Stack.Screen name="puzzles/kick/[difficulty]" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="settings" />
     </Stack>

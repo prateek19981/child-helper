@@ -34,18 +34,18 @@ PARENT_EMAIL = "parent@koober.dev"
 DEFAULT_TALK_QUESTIONS = [
     {
         "sequence_number": 1,
-        "prompt": "Hi friend! How are you today?",
-        "retry_prompt": "I didn't quite catch that. How are you today?",
+        "prompt": "Hi friend! I'm Kick. What's your name, and how are you feeling today?",
+        "retry_prompt": "I didn't quite catch that. Can you tell me your name?",
     },
     {
         "sequence_number": 2,
-        "prompt": "What is one thing that makes you smile?",
-        "retry_prompt": "Tell me one thing that makes you smile.",
+        "prompt": "Nice to meet you! Tell me one fun thing you did today.",
+        "retry_prompt": "Tell me one fun thing you did today.",
     },
     {
         "sequence_number": 3,
-        "prompt": "Awesome! Are you ready to practice speaking with me?",
-        "retry_prompt": "Are you ready to practice speaking with Koober?",
+        "prompt": "I love hearing about your day! What made that moment special?",
+        "retry_prompt": "What made that moment special for you?",
     },
 ]
 
@@ -81,11 +81,31 @@ async def seed_talk_questions_for_all_lessons() -> None:
         print(f"Talk questions: added {added} row(s) across {len(lessons)} lesson(s)")
 
 
+async def ensure_math_puzzles_lesson(db: AsyncSession) -> Lesson:
+    """Idempotent catalog card for the client math-puzzles module."""
+    existing = await db.scalar(select(Lesson).where(Lesson.slug == "math-puzzles"))
+    if existing:
+        return existing
+    lesson = Lesson(
+        title="Math Puzzles",
+        description="Find the missing number in fun visual grids",
+        difficulty=2,
+        estimated_minutes=5,
+        slug="math-puzzles",
+    )
+    db.add(lesson)
+    await db.flush()
+    await db.commit()
+    return lesson
+
+
 async def seed() -> None:
     async with SessionLocal() as db:
         existing = await db.scalar(select(User).where(User.email == PARENT_EMAIL))
         if existing:
-            print("Already seeded — ensuring talk questions exist")
+            print("Already seeded — ensuring talk questions and math-puzzles lesson")
+            await ensure_math_puzzles_lesson(db)
+            await db.commit()
             await seed_talk_questions_for_all_lessons()
             return
 
@@ -144,15 +164,15 @@ async def seed() -> None:
 
         lessons = [
             Lesson(
-                title="Meet Koober!",
-                description="Listen, repeat and learn fun new words.",
+                title="Meet Kick!",
+                description="Hi! I'm Kick. I like to party and play. Come on, let's party together.",
                 difficulty=1,
                 estimated_minutes=5,
                 slug="meet-koober",
             ),
             Lesson(
                 title="Jungle Safari",
-                description="Spell jungle animals with Koober",
+                description="Spell jungle animals with Kick",
                 difficulty=2,
                 estimated_minutes=8,
                 slug="jungle-safari",
@@ -164,11 +184,20 @@ async def seed() -> None:
                 estimated_minutes=6,
                 slug="sound-space",
             ),
+            Lesson(
+                title="Math Puzzles",
+                description="Find the missing number in fun visual grids",
+                difficulty=2,
+                estimated_minutes=5,
+                slug="math-puzzles",
+            ),
         ]
         db.add_all(lessons)
         await db.flush()
 
         for lesson in lessons:
+            if lesson.slug == "math-puzzles":
+                continue
             await ensure_talk_questions(db, lesson.id)
 
         db.add(LessonWord(lesson_id=lessons[0].id, word_id=words[3].id, sequence_number=1))

@@ -35,6 +35,7 @@ export default function Home() {
   const router = useRouter();
   const [data, setData] = useState<HomeData | null>(null);
   const [titleWidth, setTitleWidth] = useState<number | null>(null);
+  console.log("data", data?.games);
 
   useEffect(() => {
     if (!child) return;
@@ -88,7 +89,7 @@ export default function Home() {
               </Text>
               <TouchableOpacity
                 style={styles.start}
-                onPress={() => router.push(`/lesson/talk/${lesson.id}` as Href)}
+                onPress={() => router.push(`/lesson/loading/${lesson.id}` as Href)}
                 activeOpacity={0.85}
               >
                 <SvgIcon name="play" width={14} height={14} />
@@ -111,13 +112,21 @@ export default function Home() {
           {(data?.games ?? []).map((g) => (
             <View key={g.id} style={styles.game}>
               <View style={styles.art}>
-                <SvgIcon name={g.slug === "sound-space" ? "space" : "jungle"} width={72} height={72} />
+                <SvgIcon
+                  name={g.slug === "sound-space" ? "space" : g.slug === "math-puzzles" ? "tip" : "jungle"}
+                  width={72}
+                  height={72}
+                />
               </View>
               <Text style={styles.gameTitle}>{g.title}</Text>
               <Text style={styles.gameDesc}>{g.description}</Text>
               <TouchableOpacity
                 style={styles.play}
-                onPress={() => router.push(`/lesson/${g.id}` as Href)}
+                onPress={() =>
+                  router.push(
+                    (g.slug === "math-puzzles" ? "/puzzles" : `/lesson/${g.id}`) as Href
+                  )
+                }
                 activeOpacity={0.85}
               >
                 <Text style={styles.playText}>Play</Text>

@@ -21,7 +21,7 @@ export {
 } from "./atoms";
 export type { ButtonTone, IconName, TextTone, TextVariant } from "./atoms";
 
-export { Back, BackButton, Field, TextField } from "./molecules";
+export { Back, BackButton, ConfirmDialog, Field, TextField } from "./molecules";
 
 export { AuthLayout } from "./templates";
 

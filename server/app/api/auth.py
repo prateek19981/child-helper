@@ -7,11 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
 from app.core.deps import get_current_user
+from app.core.providers import get_email_sender
 from app.core.security import as_utc, hash_password, hash_token, new_raw_token, verify_password
 from app.models import Child, ChildStatus, EmailToken, EmailTokenPurpose, RefreshToken, User, UserStatus
-from app.services.email import send_reset_email, send_verify_email
+from app.services.email import EmailSender, send_reset_email, send_verify_email
 from app.services.google import verify_google_id_token
-from app.services.tokens import issue_tokens
+from app.services.tokens import create_token_pair, user_auth_payload
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -58,8 +59,16 @@ class ForgotIn(BaseModel):
     email: EmailStr
 
 
+def _auth_tokens_response(pair, user: User) -> dict:
+    return {**pair.as_dict(), "user": user_auth_payload(user)}
+
+
 @router.post("/register")
-async def register(body: RegisterIn, db: AsyncSession = Depends(get_db)):
+async def register(
+    body: RegisterIn,
+    db: AsyncSession = Depends(get_db),
+    mailer: EmailSender = Depends(get_email_sender),
+):
     existing = await db.scalar(select(User).where(User.email == body.email.lower()))
     if existing:
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
@@ -91,7 +100,7 @@ async def register(body: RegisterIn, db: AsyncSession = Depends(get_db)):
         )
     )
     await db.commit()
-    await send_verify_email(user, raw)
+    await send_verify_email(user, raw, sender=mailer)
     print("email sent", raw)
     return {"message": "Check your email to verify your account", "dev_verify_token": raw}
 
@@ -116,9 +125,9 @@ async def verify_email(token: str | None = None, body: TokenIn | None = None, db
         raise HTTPException(400, "Invalid token")
     user.status = UserStatus.active
     rec.used = True
-    tokens = await issue_tokens(db, user)
+    pair = await create_token_pair(db, user)
     await db.commit()
-    return tokens
+    return _auth_tokens_response(pair, user)
 
 
 @router.post("/login")
@@ -132,9 +141,9 @@ async def login(body: LoginIn, db: AsyncSession = Depends(get_db)):
         raise HTTPException(403, "Account disabled")
     if user.status != UserStatus.active:
         raise HTTPException(403, "Email not verified")
-    tokens = await issue_tokens(db, user)
+    pair = await create_token_pair(db, user)
     await db.commit()
-    return tokens
+    return _auth_tokens_response(pair, user)
 
 
 @router.post("/google")
@@ -168,9 +177,9 @@ async def google(body: GoogleIn, db: AsyncSession = Depends(get_db)):
     else:
         user.google_sub = user.google_sub or sub
         user.status = UserStatus.active
-    tokens = await issue_tokens(db, user)
+    pair = await create_token_pair(db, user)
     await db.commit()
-    return tokens
+    return _auth_tokens_response(pair, user)
 
 
 @router.post("/refresh")
@@ -187,13 +196,17 @@ async def refresh(body: RefreshIn, db: AsyncSession = Depends(get_db)):
     user = await db.get(User, rec.user_id)
     if user is None:
         raise HTTPException(401, "Invalid refresh token")
-    tokens = await issue_tokens(db, user)
+    pair = await create_token_pair(db, user)
     await db.commit()
-    return tokens
+    return _auth_tokens_response(pair, user)
 
 
 @router.post("/forgot-password")
-async def forgot(body: ForgotIn, db: AsyncSession = Depends(get_db)):
+async def forgot(
+    body: ForgotIn,
+    db: AsyncSession = Depends(get_db),
+    mailer: EmailSender = Depends(get_email_sender),
+):
     user = await db.scalar(select(User).where(User.email == body.email.lower()))
     if user:
         raw = new_raw_token()
@@ -206,7 +219,7 @@ async def forgot(body: ForgotIn, db: AsyncSession = Depends(get_db)):
             )
         )
         await db.commit()
-        await send_reset_email(user, raw)
+        await send_reset_email(user, raw, sender=mailer)
         return {"message": "If that email exists, a reset was sent", "dev_reset_token": raw}
     return {"message": "If that email exists, a reset was sent"}
 

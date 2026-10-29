@@ -1,18 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { apiJson, getTokens, setTokens, type Tokens } from "./api";
-
-type User = { id: string; email: string; display_name: string | null; status: string };
-type Child = {
-  id: string;
-  display_name: string;
-  avatar_url: string | null;
-  age_band: string | null;
-  language: string;
-};
+import { apiJson, setTokens, type Tokens } from "./api";
+import {
+  applyTokens,
+  loadSession,
+  type SessionChild,
+  type SessionUser,
+} from "./session";
 
 type AuthCtx = {
-  user: User | null;
-  child: Child | null;
+  user: SessionUser | null;
+  child: SessionChild | null;
   ready: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string, childName: string) => Promise<string>;
@@ -24,23 +21,9 @@ type AuthCtx = {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-async function loadSession(): Promise<{ user: User; child: Child | null } | null> {
-  const tokens = await getTokens();
-  if (!tokens) return null;
-  let user: User;
-  try {
-    user = await apiJson<User>("/auth/me");
-  } catch {
-    return null;
-  }
-  if (user.status !== "active") return { user, child: null };
-  const kids = await apiJson<Child[]>("/children");
-  return { user, child: kids[0] ?? null };
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [child, setChild] = useState<Child | null>(null);
+  const [user, setUser] = useState<SessionUser | null>(null);
+  const [child, setChild] = useState<SessionChild | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -52,11 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setReady(true));
   }, []);
 
-  async function applyTokens(data: Tokens & { user: User }) {
-    await setTokens({ access_token: data.access_token, refresh_token: data.refresh_token });
-    const session = await loadSession();
-    setUser(session?.user ?? data.user);
-    setChild(session?.child ?? null);
+  async function hydrateFromTokens(data: Tokens & { user: SessionUser }) {
+    const session = await applyTokens(data);
+    setUser(session.user);
+    setChild(session.child);
   }
 
   const value: AuthCtx = {
@@ -64,11 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     child,
     ready,
     async signIn(email, password) {
-      const data = await apiJson<Tokens & { user: User }>("/auth/login", {
+      const data = await apiJson<Tokens & { user: SessionUser }>("/auth/login", {
         method: "POST",
         data: { email, password },
       });
-      await applyTokens(data);
+      await hydrateFromTokens(data);
     },
     async register(name, email, password, childName) {
       const data = await apiJson<{ dev_verify_token: string }>("/auth/register", {
@@ -78,18 +60,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return data.dev_verify_token;
     },
     async verify(token) {
-      const data = await apiJson<Tokens & { user: User }>("/auth/verify-email", {
+      const data = await apiJson<Tokens & { user: SessionUser }>("/auth/verify-email", {
         method: "POST",
         data: { token },
       });
-      await applyTokens(data);
+      await hydrateFromTokens(data);
     },
     async google(idToken) {
-      const data = await apiJson<Tokens & { user: User }>("/auth/google", {
+      const data = await apiJson<Tokens & { user: SessionUser }>("/auth/google", {
         method: "POST",
         data: { id_token: idToken },
       });
-      await applyTokens(data);
+      await hydrateFromTokens(data);
     },
     async forgot(email) {
       const data = await apiJson<{ dev_reset_token?: string }>("/auth/forgot-password", {

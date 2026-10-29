@@ -10,7 +10,7 @@ from app.api.auth import router as auth_router
 from app.api.domain import router as domain_router
 from app.core.config import settings
 
-app = FastAPI(title="Koober API")
+app = FastAPI(title="Kick API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list + ["*"],

@@ -14,8 +14,8 @@ export function createTabsLayoutStyles(t: Theme) {
     tabRow: {
       flex: 1 as const,
       flexDirection: "row" as const,
-      alignItems: "space-between" as const,
-      justifyContent: "space-around" as const
+      alignItems: "center" as const,
+      justifyContent: "space-around" as const,
     },
     tabButton: {
       width: 100,

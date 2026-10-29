@@ -86,6 +86,7 @@ type Props = {
   mouth?: MouthPose;
   /** Camera distance. Larger draws the character smaller. */
   fit?: number;
+  onReady?: () => void;
 };
 
 function boneMapFor(skeleton: THREE.Skeleton): THREE.DataTexture {
@@ -113,7 +114,7 @@ function writeBoneMaps(root: THREE.Object3D) {
     const skeleton = mesh.skeleton;
     skeleton.update();
     const tex = boneMapFor(skeleton);
-    const data = tex.image.data as Uint8Array;
+    const data = tex.image.data as unknown as Uint8Array;
     const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
     const floats = skeleton.boneMatrices;
     const count = Math.min(floats.length, data.byteLength / 4);
@@ -266,10 +267,11 @@ async function loadJames(): Promise<LoadedGltf> {
   });
 }
 
-export function JamesModel({ mood = "idle", size = 180, style, mouth, fit = 1.85 / 2 }: Props) {
+export function JamesModel({ mood = "idle", size = 180, style, mouth, fit = 1.85 / 2, onReady }: Props) {
   const moodRef = useRef(mood);
   const mouthRef = useRef(mouth ?? CLOSED_MOUTH);
   const fitRef = useRef(fit);
+  const onReadyRef = useRef(onReady);
   const frameRef = useRef<number | null>(null);
   const aliveRef = useRef(true);
   const viewRef = useRef(0);
@@ -278,6 +280,7 @@ export function JamesModel({ mood = "idle", size = 180, style, mouth, fit = 1.85
   moodRef.current = mood;
   mouthRef.current = mouth ?? CLOSED_MOUTH;
   fitRef.current = fit;
+  onReadyRef.current = onReady;
 
   useEffect(() => {
     aliveRef.current = true;
@@ -366,7 +369,10 @@ export function JamesModel({ mood = "idle", size = 180, style, mouth, fit = 1.85
       const boundsSize = bounds.getSize(new THREE.Vector3());
       root.position.sub(bounds.getCenter(new THREE.Vector3()));
       let appliedFit = Number.NaN;
-      if (aliveRef.current) setReady(true);
+      if (aliveRef.current) {
+        setReady(true);
+        onReadyRef.current?.();
+      }
 
       const clock = new THREE.Clock();
       let elapsed = 0;
